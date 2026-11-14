@@ -7,11 +7,15 @@ body:has(.quran-reader) { margin:0; }
   display:grid;
   position:fixed;
   z-index:10;
-  grid-template-columns:repeat(3, minmax(0, 1fr));
+  grid-template-columns:repeat(4, minmax(0, 1fr));
   gap:.25rem;
   inset:0 0 auto;
   min-height:var(--reader-nav-space);
   padding:calc(.25rem + env(safe-area-inset-top)) max(.5rem, env(safe-area-inset-right)) .25rem max(.5rem, env(safe-area-inset-left));
+}
+.verse { scroll-margin-top:.5rem; }
+@media(width < 40rem) {
+  .reader-navigation > button { padding-inline:.25rem; font-size:.75rem; }
 }
 html:has(.reader-navigation) {
   --reader-nav-space:calc(3.5rem + env(safe-area-inset-top));

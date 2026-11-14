@@ -12,15 +12,16 @@ type VerseViewProps = {
   readonly saved: boolean
   readonly onBookmark: () => void
   readonly bookmarkRef?: Ref<HTMLButtonElement>
+  readonly verseRef?: Ref<HTMLElement>
   readonly onActivate: () => void
   readonly readingFocusRef: RefObject<HTMLElement | null>
   readonly onRetryGrammar: RetryGrammar
   readonly layout?: 'stacked' | 'parallel'
 }
 
-export function VerseView({ verse, chapter, active, saved, onBookmark, bookmarkRef, onActivate, readingFocusRef, onRetryGrammar, layout = 'stacked' }: VerseViewProps) {
+export function VerseView({ verse, chapter, active, saved, onBookmark, bookmarkRef, verseRef, onActivate, readingFocusRef, onRetryGrammar, layout = 'stacked' }: VerseViewProps) {
   const parallel = layout === 'parallel'
-  return <article tabIndex={-1} className={`verse rounded-ui-control border-0 border-b border-solid border-ui-border p-3 transition-colors duration-(--theme-motion-fast) ${active ? 'bg-ui-background' : ''} ${parallel ? 'md:grid md:grid-cols-2 md:items-start md:gap-x-8' : ''}`}>
+  return <article ref={verseRef} tabIndex={-1} className={`verse rounded-ui-control border-0 border-b border-solid border-ui-border p-3 transition-colors duration-(--theme-motion-fast) ${active ? 'bg-ui-background' : ''} ${parallel ? 'md:grid md:grid-cols-2 md:items-start md:gap-x-8' : ''}`}>
     <div className={`verse-toolbar flex flex-wrap items-center justify-between gap-2 ${parallel ? 'md:col-span-2' : ''}`}>
       <span className="font-ui-body text-sm font-semibold text-ui-muted"><span aria-hidden="true">۞ </span>{chapter.id}:{verse.number}</span>
       <div className="flex gap-2">

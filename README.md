@@ -44,10 +44,11 @@ follows the approved push through Pages.
 See [edition review, licence and mappings](apps/playground/data/mufradat/README.md).
 
 - Search for a chapter by name or English meaning.
+- In the local Search view, enter a chapter and verse reference such as `1:3` to open that verse. Text search is not available yet. This change reaches the live site after an approved push and deployment.
 - Open a chapter to read Arabic text with an English translation.
 - Tap an Arabic word for its English meaning and transliteration, then move between words in the verse.
 - Bookmark an ayah and find it again in My bookmarks.
-- View the chapter list beside the reader on desktop, or stacked on mobile.
+- Switch between Read, Chapters and Bookmarks in the reader navigation.
 
 The reader loads Quran Foundation content through a Supabase Edge Function. It loads verses in pages, credits the translation source, and lets you retry failed requests. The current API environment is pre-live, so only Al-Fatihah and Al-Baqarah are available. All 114 chapters require Quran Foundation production approval; see [Production access](supabase/functions/quran/README.md#production-access). Frontend changes are published by the Pages workflow after a push to `main`. Audio playback and reading progress are not connected yet. See the [Playground setup](apps/playground/README.md#quran-api-setup) and [function setup](supabase/functions/quran/README.md).
 

@@ -12,6 +12,27 @@ export const ChapterSchema = z.object({
 })
 export type Chapter = z.infer<typeof ChapterSchema>
 
+export const SearchRequestSchema = z.object({
+  query: z.string().trim().min(1),
+  language: z.enum(['arabic', 'english']),
+  page: z.string().min(1).nullable(),
+})
+export type SearchRequest = z.infer<typeof SearchRequestSchema>
+export const SearchResultSchema = z.object({
+  chapter: z.number().int().min(1).max(114),
+  verse: z.number().int().min(1).max(286),
+  chapterName: z.string().trim().min(1),
+  arabic: z.string().trim().min(1),
+  translation: z.string().trim().min(1),
+  translationName: z.string().trim().min(1),
+})
+export type SearchResult = z.infer<typeof SearchResultSchema>
+export const SearchResponseSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('unavailable') }),
+  z.object({ status: z.literal('ready'), results: z.array(SearchResultSchema), nextPage: z.string().min(1).nullable(), coverage: z.enum(['complete', 'limited', 'unknown']) }),
+])
+export type SearchResponse = z.infer<typeof SearchResponseSchema>
+
 export const ChaptersResponseSchema = z.object({
   chapters: z.array(ChapterSchema).min(1).max(114)
     .refine(chapters => new Set(chapters.map(chapter => chapter.id)).size === chapters.length, 'Duplicate chapter IDs'),
