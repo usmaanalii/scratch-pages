@@ -12,6 +12,14 @@ import { ApiErrorSchema } from '@scratch-pages/api-contracts/error'
 
 ## Contracts
 
+`SearchRequestSchema` and `SearchResponseSchema` define an application-owned
+search interface. A request carries a non-empty query, Arabic or English mode,
+and a nullable opaque page token. A ready response carries attributed text
+results, a nullable next-page token and complete, limited or unknown coverage.
+An unavailable response is distinct from an empty result. Result strings are
+rendered as text. The reader's current service returns unavailable. No search
+HTTP route is provided by this change.
+
 Quran verses may additionally contain `words: QuranWord[]`. Each word has
 `chapter`, `verse`, `position` (positive provider position), `arabic`, and nullable
 `meaning` and `transliteration`. The occurrence key is `chapter:verse:position`.

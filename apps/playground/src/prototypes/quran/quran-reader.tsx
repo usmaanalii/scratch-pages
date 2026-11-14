@@ -11,9 +11,12 @@ import type { Chapter } from './quran-api'
 import { useChapters, useReader } from './use-reader'
 import { ReaderLoading, VerseSkeleton } from './reader-loading'
 import { WordAvailabilityLegend } from './word-availability'
+import { SearchPanel } from './search-panel'
+import { searchService } from './search-service'
 
 const destinations = [
   { id: 'read', label: 'Read' },
+  { id: 'search', label: 'Search' },
   { id: 'chapters', label: 'Chapters' },
   { id: 'bookmarks', label: 'Bookmarks' },
 ] as const
@@ -29,30 +32,49 @@ function Reader({ chapters }: { chapters: [Chapter, ...Chapter[]] }) {
   const searchToggle = useRef<HTMLButtonElement>(null)
   const readingHeading = useRef<HTMLHeadingElement>(null)
   const browsingHeading = useRef<HTMLHeadingElement>(null)
+  const searchHeading = useRef<HTMLHeadingElement>(null)
   const { reading, bookmarks, actions } = useReader(chapters)
   const { selected, chapter, previousChapter, nextChapter, page, current, verses, key, activeVerse } = reading
   const { bookmarked, savedChapters, savedVerses, isVerseSaved } = bookmarks
   const { openChapter, openSavedVerse, toggleSavedVerse, toggleChapterBookmark, activateVerse, previousPage, nextPage, retryVerses, retryGrammar } = actions
   const [query, setQuery] = useState('')
+  const [referenceError, setReferenceError] = useState('')
+  const [navigationError, setNavigationError] = useState('')
+  const [highlightedVerse, setHighlightedVerse] = useState<number | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
-  const [view, setView] = useState<'read' | ChapterView>('read')
+  const [view, setView] = useState<'read' | 'search' | ChapterView>('read')
   const viewChanged = useRef(false)
   const readingPosition = useRef(0)
+  const searchPosition = useRef(0)
+  const searchFocus = useRef<HTMLElement | null>(null)
+  const searchContainer = useRef<HTMLDivElement>(null)
   const savedVerseJump = useRef<number | null>(null)
   const savedVerseButton = useRef<HTMLButtonElement>(null)
+  const searchVerse = useRef<HTMLElement>(null)
+  const pendingSearchVerse = useRef<number | null>(null)
   const visibleChapters = chapters.filter(item => `${item.name} ${item.meaning} ${item.id}`.toLowerCase().includes(query.toLowerCase()))
   const changeView = (destination: typeof view) => {
     if (destination === view) return
-    if (view === 'read') readingPosition.current = window.scrollY
+    if (view === 'read') {
+      readingPosition.current = window.scrollY
+      pendingSearchVerse.current = null
+      setHighlightedVerse(null)
+    }
+    if (view === 'search') {
+      searchPosition.current = window.scrollY
+      const focused = document.activeElement
+      searchFocus.current = focused instanceof HTMLElement && searchContainer.current?.contains(focused) ? focused : null
+    }
     viewChanged.current = true
     setView(destination)
   }
   useLayoutEffect(() => {
     if (!viewChanged.current) return
     viewChanged.current = false
-    const heading = view === 'read' ? readingHeading.current : browsingHeading.current
-    const position = view === 'read' ? readingPosition.current : 0
-    if (position === 0) heading?.focus({ preventScroll: true })
+    const heading = view === 'read' ? readingHeading.current : view === 'search' ? searchHeading.current : browsingHeading.current
+    const position = view === 'read' ? readingPosition.current : view === 'search' ? searchPosition.current : 0
+    if (view === 'search' && searchFocus.current?.isConnected) searchFocus.current.focus({ preventScroll: true })
+    else if (position === 0) heading?.focus({ preventScroll: true })
     if (document.scrollingElement) document.scrollingElement.scrollTop = position
     if (view === 'read' && position > 0) {
       const top = document.querySelector('nav[aria-label="Reader controls"]')?.getBoundingClientRect().bottom ?? 0
@@ -68,16 +90,62 @@ function Reader({ chapters }: { chapters: [Chapter, ...Chapter[]] }) {
     button?.focus({ preventScroll: true })
     button?.scrollIntoView({ block: 'center' })
   }, [view, current])
+  useLayoutEffect(() => {
+    if (view !== 'read' || current.status !== 'ready' || pendingSearchVerse.current === null) return
+    pendingSearchVerse.current = null
+    if (!searchVerse.current) {
+      setHighlightedVerse(null)
+      setNavigationError('The requested verse is unavailable.')
+      return
+    }
+    searchVerse.current?.focus({ preventScroll: true })
+    searchVerse.current.scrollIntoView({ block: 'start' })
+    const navigationBottom = document.querySelector('nav[aria-label="Reader controls"]')?.getBoundingClientRect().bottom ?? 0
+    const overlap = navigationBottom - searchVerse.current.getBoundingClientRect().top
+    if (overlap > 0) window.scrollBy({ top: -overlap, behavior: 'instant' })
+    const timer = window.setTimeout(() => setHighlightedVerse(null), 2000)
+    return () => {
+      window.clearTimeout(timer)
+      setHighlightedVerse(null)
+    }
+  }, [view, current])
   const selectChapter = (id: number) => {
     savedVerseJump.current = null
+    pendingSearchVerse.current = null
+    setNavigationError('')
     readingPosition.current = 0
     openChapter(id)
     changeView('read')
   }
   const focusReading = () => {
     savedVerseJump.current = null
+    pendingSearchVerse.current = null
+    setHighlightedVerse(null)
+    setNavigationError('')
     readingHeading.current?.focus({ preventScroll: true })
     if (document.scrollingElement) document.scrollingElement.scrollTop = 0
+  }
+  const navigateToVerse = (chapterId: number, verseNumber: number) => {
+    setNavigationError('')
+    if (chapterId < 1 || chapterId > 114 || verseNumber < 1 || verseNumber > 286) {
+      setReferenceError('Enter a valid chapter and verse reference.')
+      return
+    }
+    const target = chapters.find(item => item.id === chapterId)
+    if (!target) {
+      setReferenceError('This chapter is unavailable in the current content.')
+      return
+    }
+    if (verseNumber > target.verses) {
+      setReferenceError('Enter a valid chapter and verse reference.')
+      return
+    }
+    setReferenceError('')
+    pendingSearchVerse.current = verseNumber
+    setHighlightedVerse(verseNumber)
+    readingPosition.current = 0
+    openChapter(chapterId, verseNumber)
+    changeView('read')
   }
 
   return <ReaderLayout
@@ -85,7 +153,8 @@ function Reader({ chapters }: { chapters: [Chapter, ...Chapter[]] }) {
       {destinations.map(destination => <Button key={destination.id} variant="ghost" size="compact" className="min-w-0 wrap-anywhere transition-none"
         aria-pressed={view === destination.id} onClick={() => changeView(destination.id)}>{destination.label}</Button>)}
     </nav>}>
-        {view !== 'read' && <ChapterBrowser total={view === 'chapters' ? chapters.length : bookmarks.count} tab={view} headingRef={browsingHeading}
+        <div ref={searchContainer} hidden={view !== 'search'}><SearchPanel service={searchService} headingRef={searchHeading} referenceError={referenceError} onEdit={() => setReferenceError('')} onSelect={navigateToVerse} onReference={navigateToVerse}/></div>
+        {(view === 'chapters' || view === 'bookmarks') && <ChapterBrowser total={view === 'chapters' ? chapters.length : bookmarks.count} tab={view} headingRef={browsingHeading}
             search={view === 'chapters' && <>
               <Button ref={searchToggle} variant="outline" aria-expanded={searchOpen} onClick={() => { if (searchOpen) setQuery(''); setSearchOpen(!searchOpen) }}>Search chapters</Button>
               {searchOpen && <ChapterSearch query={query} onQueryChange={setQuery} onClose={() => { setSearchOpen(false); setQuery(''); searchToggle.current?.focus() }}/>}
@@ -94,10 +163,11 @@ function Reader({ chapters }: { chapters: [Chapter, ...Chapter[]] }) {
             {view === 'chapters'
             ? <ChapterList chapters={visibleChapters} selectedId={selected} onSelect={selectChapter}/>
               : <BookmarkList chapters={chapters} savedChapters={savedChapters} savedVerses={savedVerses} onOpenChapter={selectChapter}
-                  onOpenVerse={(chapterId, verseNumber) => { readingPosition.current = 0; savedVerseJump.current = verseNumber; openSavedVerse(chapterId, verseNumber); changeView('read') }}/>
+                  onOpenVerse={(chapterId, verseNumber) => { pendingSearchVerse.current = null; setNavigationError(''); readingPosition.current = 0; savedVerseJump.current = verseNumber; openSavedVerse(chapterId, verseNumber); changeView('read') }}/>
             }
           </ChapterBrowser>}
         {view === 'read' && <>
+        {navigationError && <p role="alert">{navigationError}</p>}
         {current.status === 'loading' && <p role="status" className="sr-only">Loading verses…</p>}
         <ReadingPanel busy={current.status === 'loading'} header={<>
             <div className="min-w-0 wrap-anywhere">
@@ -117,7 +187,8 @@ function Reader({ chapters }: { chapters: [Chapter, ...Chapter[]] }) {
           </div></>}>
           {current.status === 'loading' && <VerseSkeleton/>}
           {current.status === 'error' && <div><p role="alert">{current.message}</p><Button onClick={retryVerses}>Retry verses</Button></div>}
-          {verses.map(verse => <VerseView key={`${key}-${verse.number}`} verse={verse} chapter={chapter} active={activeVerse === verse.number} saved={isVerseSaved(verse)}
+          {verses.map(verse => <VerseView key={`${key}-${verse.number}`} verse={verse} chapter={chapter} active={activeVerse === verse.number || highlightedVerse === verse.number} saved={isVerseSaved(verse)}
+            verseRef={highlightedVerse === verse.number ? searchVerse : undefined}
             bookmarkRef={activeVerse === verse.number ? savedVerseButton : undefined}
             onBookmark={() => toggleSavedVerse(verse)} onActivate={() => activateVerse(verse.number)} readingFocusRef={readingHeading} onRetryGrammar={retryGrammar}/>) }
           {current.status === 'ready' && <p className="my-2 px-3 text-sm leading-relaxed text-ui-muted">{current.data.translationName} · Quran Foundation</p>}
