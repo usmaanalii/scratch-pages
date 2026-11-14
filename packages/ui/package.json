@@ -10,6 +10,6 @@
     "@radix-ui/react-tabs": "1.2.1",
     "@scratch-pages/design-tokens": "workspace:*"
   },
-  "devDependencies": { "@storybook/react-vite": "10.6.5", "@tailwindcss/vite": "4.3.3", "@types/react": "19.3.0", "storybook": "10.6.5", "tailwindcss": "4.3.3", "typescript": "^7.0.2", "vite": "^8.3.5" },
+  "devDependencies": { "@storybook/react-vite": "10.6.5", "@tailwindcss/vite": "4.3.3", "@types/react": "19.3.0", "storybook": "10.6.6", "tailwindcss": "4.3.3", "typescript": "^7.0.2", "vite": "^8.3.5" },
   "scripts": { "storybook": "storybook dev -p 6006", "build:storybook": "storybook build" }
 }
