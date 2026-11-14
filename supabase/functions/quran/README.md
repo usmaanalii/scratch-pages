@@ -375,7 +375,12 @@ pnpm --filter playground exec node scripts/quran-data/coverage-index.mjs ../../s
 ```
 
 The Docker bundler selects the coverage index, checksum manifest and verbatim
-notice via `static_files`. Run the local function and verify word form, exact
+notice via `static_files`. Keep the array on one line in `supabase/config.toml`
+because the lexicon release test reads it in that format. After changing the
+array, run `pnpm --filter playground test lexicon-release.test.ts` before
+deploying.
+
+Run the local function and verify word form, exact
 root and a continuation against those generated assets. After approved
 deployment, repeat the lookup checks on the hosted function before publishing
 the Pages route. Confirm the route URL after Pages deployment and add it to
