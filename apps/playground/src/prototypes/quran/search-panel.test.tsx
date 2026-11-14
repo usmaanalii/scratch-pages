@@ -64,7 +64,7 @@ it('lets the reader retry a failed search', async () => {
   await user.type(screen.getByRole('textbox', { name: 'Search the Quran' }), 'mercy')
   await user.click(screen.getByRole('button', { name: 'Search Quran' }))
   await user.click(await screen.findByRole('button', { name: 'Retry search' }))
-  expect(await screen.findByText('No results found.')).toBeVisible()
+  expect(await screen.findByRole('status')).toHaveTextContent('No matches in Al-Fatihah or Al-Baqarah on this page')
 })
 
 it('reports malformed search responses as a retryable failure', async () => {
@@ -125,5 +125,5 @@ it('does not show results for a query after it has been edited', async () => {
   await user.clear(input)
   await user.type(input, 'new')
   await act(async () => { pending.resolve({ status: 'ready', results: [], nextPage: null, coverage: 'complete' }) })
-  expect(screen.queryByText('No results found.')).not.toBeInTheDocument()
+  expect(screen.queryByText('No matches in Al-Fatihah or Al-Baqarah on this page.')).not.toBeInTheDocument()
 })
