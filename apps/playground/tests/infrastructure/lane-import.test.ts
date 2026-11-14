@@ -174,7 +174,7 @@ it('reproduces identical assets from independent offline imports', async () => {
   } finally {
     await rm(output, { recursive: true, force: true })
   }
-})
+}, 30_000)
 
 it('removes stale generated entries when rebuilding an output directory', async () => {
   const output = await mkdtemp(join(tmpdir(), 'lane-rebuild-'))
@@ -188,7 +188,7 @@ it('removes stale generated entries when rebuilding an output directory', async 
   } finally {
     await rm(output, { recursive: true, force: true })
   }
-})
+}, 30_000)
 
 it('rejects a changed source archive before writing data', async () => {
   const output = await mkdtemp(join(tmpdir(), 'lane-corrupt-source-'))

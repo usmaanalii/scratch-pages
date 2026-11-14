@@ -67,7 +67,7 @@ test('keeps the focused verse visible with enlarged text', async ({ page }) => {
   await page.setViewportSize({ width: 640, height: 800 })
   await mockQuranContent(page)
   await page.goto('./quran/')
-  await page.addStyleTag({ content: 'html { font-size: 200%; }' })
+  await page.addStyleTag({ content: 'html { font-size: 200%; } .reader-navigation { min-height: 180px; }' })
   await page.getByRole('button', { name: 'Search', exact: true }).click()
   await page.getByRole('textbox', { name: 'Search the Quran' }).fill('1:3')
   await page.getByRole('button', { name: 'Search Quran' }).click()

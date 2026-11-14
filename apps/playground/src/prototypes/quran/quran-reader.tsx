@@ -100,6 +100,9 @@ function Reader({ chapters }: { chapters: [Chapter, ...Chapter[]] }) {
     }
     searchVerse.current?.focus({ preventScroll: true })
     searchVerse.current.scrollIntoView({ block: 'start' })
+    const navigationBottom = document.querySelector('nav[aria-label="Reader controls"]')?.getBoundingClientRect().bottom ?? 0
+    const overlap = navigationBottom - searchVerse.current.getBoundingClientRect().top
+    if (overlap > 0) window.scrollBy({ top: -overlap, behavior: 'instant' })
     const timer = window.setTimeout(() => setHighlightedVerse(null), 2000)
     return () => {
       window.clearTimeout(timer)
