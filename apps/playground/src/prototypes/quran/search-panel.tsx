@@ -69,7 +69,7 @@ export function SearchPanel({ service, onSelect, headingRef, onReference, refere
     </form>
     {error && <p id={errorId} role="alert" className="text-ui-error">{error}</p>}
     {response?.status === 'unavailable' && <p role="status" className="text-ui-muted">Quran text search is not available yet.</p>}
-    {response?.status === 'ready' && response.coverage === 'limited' && <p>Search coverage is limited.</p>}
+    {response?.status === 'ready' && response.coverage === 'limited' && <p>Searching Al-Fatihah and Al-Baqarah only.</p>}
     {response && response.status !== 'unavailable' && <SearchResults
       state={response} onSelect={onSelect} onRetry={() => search(requestedPage.current)} onNextPage={search}
     />}

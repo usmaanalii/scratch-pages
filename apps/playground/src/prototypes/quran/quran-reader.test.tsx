@@ -128,12 +128,18 @@ it('preserves a verse activation made while the navigation highlight is visible'
   expect(bookmark.closest('article')).toHaveClass('bg-ui-background')
 })
 
-it('explains that text search is unavailable when no provider is configured', async () => {
+it('shows attributed, limited results from the Quran function', async () => {
+  server.use(http.get(`${quranEndpoint}/search`, ({ request }) => {
+    expect(new URL(request.url).searchParams.get('query')).toBe('mercy')
+    return HttpResponse.json({ status: 'ready', results: [{ chapter: 1, verse: 3, chapterName: 'Al-Fatihah', arabic: 'الرَّحْمَٰنِ الرَّحِيمِ', translation: 'the Lord of Mercy', translationName: 'M.A.S. Abdel Haleem' }], nextPage: null, coverage: 'limited' })
+  }))
   const { user } = await renderReader()
   await user.click(screen.getByRole('button', { name: /^Search$/ }))
   await user.type(screen.getByRole('textbox', { name: 'Search the Quran' }), 'mercy')
   await user.click(screen.getByRole('button', { name: 'Search Quran' }))
-  expect(screen.getByRole('status')).toHaveTextContent('Quran text search is not available yet.')
+  expect(await screen.findByRole('button', { name: /Al-Fatihah 1:3/ })).toBeVisible()
+  expect(screen.getByText('M.A.S. Abdel Haleem')).toBeVisible()
+  expect(screen.getByText('Searching Al-Fatihah and Al-Baqarah only.')).toBeVisible()
 })
 
 it('opens a result from the search service', async () => {

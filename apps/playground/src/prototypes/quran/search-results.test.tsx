@@ -20,15 +20,16 @@ it('shows an attributed result and opens its verse', async () => {
   expect(onSelect).toHaveBeenCalledWith(1, 3)
 })
 
-it('renders result text without interpreting markup', () => {
-  render(<SearchResults state={{ status: 'ready', results: [{ chapter: 1, verse: 3, chapterName: 'Al-Fātiḥah', arabic: 'نص', translation: '<img src=x onerror=alert(1)>', translationName: 'Translator' }], nextPage: null }} onSelect={() => {}} onRetry={() => {}} onNextPage={() => {}} />)
-  expect(screen.getByText('<img src=x onerror=alert(1)>')).toBeVisible()
+it('shows translation text without provider markup', () => {
+  render(<SearchResults state={{ status: 'ready', results: [{ chapter: 1, verse: 3, chapterName: 'Al-Fātiḥah', arabic: 'نص', translation: 'Merciful<sup>1</sup><img src=x onerror=alert(1)>', translationName: 'Translator' }], nextPage: null }} onSelect={() => {}} onRetry={() => {}} onNextPage={() => {}} />)
+  expect(screen.getByText('Merciful')).toBeVisible()
+  expect(screen.queryByText(/onerror/)).not.toBeInTheDocument()
   expect(screen.queryByRole('img')).not.toBeInTheDocument()
 })
 
 it('shows an empty result message', () => {
   render(<SearchResults state={{ status: 'ready', results: [], nextPage: null }} onSelect={() => {}} onRetry={() => {}} onNextPage={() => {}} />)
-  expect(screen.getByRole('status')).toHaveTextContent('No results found')
+  expect(screen.getByRole('status')).toHaveTextContent('No matches in Al-Fatihah or Al-Baqarah on this page')
 })
 
 it('offers a retry when search fails', async () => {
@@ -50,4 +51,5 @@ it('offers the next page when the current page is empty', async () => {
   render(<SearchResults state={{ status: 'ready', results: [], nextPage: 'next' }} onSelect={() => {}} onRetry={() => {}} onNextPage={next} />)
   await userEvent.setup().click(screen.getByRole('button', { name: 'Next results' }))
   expect(next).toHaveBeenCalledWith('next')
+  expect(screen.getByRole('status')).toHaveTextContent('No matches in Al-Fatihah or Al-Baqarah on this page')
 })

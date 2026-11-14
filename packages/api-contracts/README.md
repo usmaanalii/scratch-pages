@@ -17,8 +17,10 @@ search interface. A request carries a non-empty query, Arabic or English mode,
 and a nullable opaque page token. A ready response carries attributed text
 results, a nullable next-page token and complete, limited or unknown coverage.
 An unavailable response is distinct from an empty result. Result strings are
-rendered as text. The reader's current service returns unavailable. No search
-HTTP route is provided by this change.
+rendered as text. The reader calls the Quran function's `/v2/search` route when
+configured. That route currently returns results from chapters 1–2 with
+Content API text and translation attribution. The page token is the next
+provider page number, encoded as a string.
 
 Quran verses may additionally contain `words: QuranWord[]`. Each word has
 `chapter`, `verse`, `position` (positive provider position), `arabic`, and nullable

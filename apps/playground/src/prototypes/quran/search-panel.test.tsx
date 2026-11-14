@@ -19,7 +19,7 @@ it('identifies limited search coverage', async () => {
   const user = userEvent.setup()
   await user.type(screen.getByRole('textbox', { name: 'Search the Quran' }), 'mercy')
   await user.click(screen.getByRole('button', { name: 'Search Quran' }))
-  expect(await screen.findByText('Search coverage is limited.')).toBeVisible()
+  expect(await screen.findByText('Searching Al-Fatihah and Al-Baqarah only.')).toBeVisible()
 })
 
 it('announces a pending search', async () => {

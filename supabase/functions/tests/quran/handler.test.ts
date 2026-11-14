@@ -31,6 +31,77 @@ function tokenScenario() {
   return { handler: setup(), tokenCount: () => tokens }
 }
 afterEach(() => vi.useRealTimers())
+
+it('returns only readable search verses with attributed Content text and separate OAuth scopes', async () => {
+  const scopes: string[] = []
+  server.use(
+    http.post('https://prelive-oauth2.quran.foundation/oauth2/token', async ({ request }) => {
+      const scope = new URLSearchParams(await request.text()).get('scope') ?? ''
+      scopes.push(scope)
+      return HttpResponse.json({ access_token: `${scope}-token`, expires_in: 3600 })
+    }),
+    http.get('https://apis-prelive.quran.foundation/search/api/v1/search', ({ request }) => {
+      expect(request.headers.get('x-auth-token')).toBe('search-token')
+      expect(request.headers.get('x-client-id')).toBe('test-client')
+      return HttpResponse.json({ pagination: { current_page: 1, next_page: null, per_page: 5, total_pages: 1, total_records: 2 }, result: { navigation: [], verses: [
+        { result_type: 'ayah', key: '13:30', name: 'unavailable' },
+        { result_type: 'ayah', key: '1:3', name: 'search excerpt' },
+      ] } })
+    }),
+    http.get('https://apis-prelive.quran.foundation/content/api/v4/verses/by_key/1:3', ({ request }) => {
+      expect(request.headers.get('x-auth-token')).toBe('content-token')
+      return HttpResponse.json({ verse: { verse_number: 3, text_uthmani: 'الرَّحْمَٰنِ الرَّحِيمِ', translations: [{ resource_id: 85, text: 'the Lord of Mercy' }] } })
+    }),
+  )
+  const response = await setup()(request('v2/search?query=mercy&language=english'))
+  expect(response.status).toBe(200)
+  expect(await response.json()).toEqual({ status: 'ready', results: [{ chapter: 1, verse: 3, chapterName: 'Al-Fatihah', arabic: 'الرَّحْمَٰنِ الرَّحِيمِ', translation: 'the Lord of Mercy', translationName: 'M.A.S. Abdel Haleem' }], nextPage: null, coverage: 'limited' })
+  expect(scopes).toEqual(['search', 'content'])
+})
+
+it('renews a rejected Search token without changing Content authentication', async () => {
+  let issued = 0
+  server.use(
+    http.post('https://prelive-oauth2.quran.foundation/oauth2/token', () => HttpResponse.json({ access_token: `search-${++issued}`, expires_in: 3600 })),
+    http.get('https://apis-prelive.quran.foundation/search/api/v1/search', ({ request }) => request.headers.get('x-auth-token') === 'search-1'
+      ? new HttpResponse(null, { status: 401 })
+      : HttpResponse.json({ pagination: { current_page: 1, next_page: null, per_page: 20, total_pages: 0, total_records: 0 }, result: { navigation: [], verses: [] } })),
+  )
+  const response = await setup()(request('v2/search?query=mercy&language=english'))
+  expect(response.status).toBe(200)
+  expect(await response.json()).toEqual({ status: 'ready', results: [], nextPage: null, coverage: 'limited' })
+  expect(issued).toBe(2)
+})
+
+it('renews a rejected Content token while enriching a search result', async () => {
+  let contentTokens = 0
+  server.use(
+    http.post('https://prelive-oauth2.quran.foundation/oauth2/token', async ({ request }) => {
+      const scope = new URLSearchParams(await request.text()).get('scope')
+      return HttpResponse.json({ access_token: scope === 'search' ? 'search-token' : `content-${++contentTokens}`, expires_in: 3600 })
+    }),
+    http.get('https://apis-prelive.quran.foundation/search/api/v1/search', () => HttpResponse.json({ pagination: { current_page: 1, next_page: null, per_page: 20, total_pages: 1, total_records: 1 }, result: { navigation: [], verses: [{ result_type: 'ayah', key: '1:3' }] } })),
+    http.get('https://apis-prelive.quran.foundation/content/api/v4/verses/by_key/1:3', ({ request }) => request.headers.get('x-auth-token') === 'content-1'
+      ? new HttpResponse(null, { status: 401 })
+      : HttpResponse.json({ verse: { verse_number: 3, text_uthmani: 'الرَّحْمَٰنِ', translations: [{ resource_id: 85, text: 'Merciful' }] } })),
+  )
+  const response = await setup()(request('v2/search?query=mercy&language=english'))
+  expect(response.status).toBe(200)
+  expect(contentTokens).toBe(2)
+})
+
+it('keeps provider pagination when a page has no verses in the available chapters', async () => {
+  server.use(
+    http.post('https://prelive-oauth2.quran.foundation/oauth2/token', () => HttpResponse.json({ access_token: 'search-token', expires_in: 3600 })),
+    http.get('https://apis-prelive.quran.foundation/search/api/v1/search', ({ request }) => {
+      expect(new URL(request.url).searchParams.get('page')).toBe('2')
+      return HttpResponse.json({ pagination: { current_page: 2, next_page: 3, per_page: 20, total_pages: 3, total_records: 30 }, result: { navigation: [], verses: [{ result_type: 'ayah', key: '13:30' }] } })
+    }),
+  )
+  const response = await setup()(request('v2/search?query=mercy&language=english&page=2'))
+  expect(response.status).toBe(200)
+  expect(await response.json()).toEqual({ status: 'ready', results: [], nextPage: '3', coverage: 'limited' })
+})
 describe('Quran content proxy', () => {
   it('returns content to simultaneous requests using one token', async () => {
     const { handler, tokenCount } = tokenScenario()

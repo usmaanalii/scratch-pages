@@ -1,6 +1,6 @@
 # Quran content function
 
-Read-only bridge between Playground and the current Quran Foundation Content API. It uses native fetch and the documented OAuth2 Client Credentials flow; no database, service-role client, or user login is needed. The official SDK 3.15.1 was evaluated: its token cache handles early renewal but its Content path lacks in-flight token coordination and a 401 retry. The two-route HTTP integration implements the documented lifecycle directly instead of adding SDK-specific workarounds.
+Read-only bridge between Playground and the current Quran Foundation Content and Search APIs. It uses native fetch and the documented OAuth2 Client Credentials flow; no database, service-role client, or user login is needed. The official SDK 3.15.1 was evaluated: its token cache handles early renewal but its Content path lacks in-flight token coordination and a 401 retry. The HTTP integration implements the documented lifecycle directly instead of adding SDK-specific workarounds.
 
 ## Configuration
 
@@ -39,9 +39,44 @@ The entry point is `index.ts`, which imports `handler.ts`, the private `provider
 
 Responses are `no-store`; chapter and verse content are not cached. Access tokens remain server-side, are reused within a warm function instance, and are re-requested 30 seconds before expiry. Concurrent token acquisition shares one promise. A content 401 invalidates that token and retries once; a repeated failure is surfaced safely. Environments have separate function configurations and token state.
 
+## Search integration (#67)
+
+`GET /functions/v1/quran/v2/search?query=mercy&language=english` accepts a
+bounded Arabic or English query and an optional numeric `page` token. The
+function requests a separate OAuth2 `search` token, sends `x-auth-token` and
+`x-client-id` to the Search API, and keeps the existing `content` token for
+verse lookups. Both scopes have separate in-memory caches, early renewal and
+one retry after a 401. The Search endpoint uses advanced mode with a provider
+page size of 20. The function returns only verse keys in chapters 1–2 and
+loads their Uthmani text and attributed translation from the Content API.
+
+Provider pages may contain matches outside those chapters. A response can
+therefore have no visible verses and still have a next page. The response
+reports limited coverage, and the app does not display the provider's total as
+a count for chapters 1–2. The Search API does not document a chapter filter.
+The selected `language` describes the reader query; matching and Arabic
+normalisation remain provider-owned. Search result snippets do not identify a
+translation, so the function does not use them as attributed display text.
+
+The pre-live Content catalogue and translation 85 are verified for chapters
+1–2. Live Search requests returned verse keys outside them, but Content could
+not retrieve `13:30`. Search access alone does not establish production Content
+access or complete Search coverage. Provider quotas and exact matching rules
+remain unconfirmed. Search failures return a generic 502, or 429 for upstream
+throttling. Malformed requests return 400. The existing per-instance request
+budget also applies to Search.
+
+Function version 16 was deployed on 2026-11-14 with `QF_ENV=prelive` unchanged.
+Hosted checks returned two Content chapters, 11 permitted English results for
+`mercy`, three Arabic results for `الرحمن`, and attributed translation from
+M.A.S. Abdel Haleem. The first English page offered page 2; page 2 had no
+permitted verses but offered page 3. The Pages build publishes separately after
+the approved push. Confirm a result opens the exact verse and run the
+deployment smoke suite after publication.
+
 ## Security and operational limits
 
-Fixed HTTPS upstream hosts and two allowlisted operations prevent arbitrary URL forwarding. Secrets/tokens stay in server memory and outbound auth headers; no upstream error bodies or auth headers are returned or logged. Requests reject redirects and each upstream fetch has an 8-second timeout. The frontend validates response shapes and renders translation content as inert text rather than injecting HTML.
+Fixed HTTPS upstream hosts and allowlisted operations prevent arbitrary URL forwarding. Secrets/tokens stay in server memory and outbound auth headers; no upstream error bodies or auth headers are returned or logged. Requests reject redirects and each upstream fetch has an 8-second timeout. The frontend validates response shapes and renders translation content as inert text rather than injecting HTML.
 
 CORS only controls which browser origins may read responses. It does not authenticate callers: non-browser callers can supply an allowed Origin. The aggregate budget of 60 valid requests per minute **per warm function instance** bounds local work, but is not a distributed rate limit and resets when an instance restarts. Shared token requests reduce duplicate authentication only inside one instance. This does not provide global denial-of-service or quota protection. Review project usage and upstream quotas before broader public rollout; add a distributed limiter if required by observed traffic or provider limits.
 

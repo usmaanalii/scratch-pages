@@ -1,4 +1,4 @@
-import { VERSES_PER_PAGE, VersesRequestSchema, LaneRequestSchema, LaneResponseSchema, LanePageRequestSchema, LanePageResponseSchema } from '../../../packages/api-contracts/src/quran.ts'
+import { VERSES_PER_PAGE, VersesRequestSchema, LaneRequestSchema, LaneResponseSchema, LanePageRequestSchema, LanePageResponseSchema, SearchResponseSchema } from '../../../packages/api-contracts/src/quran.ts'
 import { ApiErrorSchema } from '../../../packages/api-contracts/src/error.ts'
 import { mapChapters, mapVerses } from './provider.ts'
 import { enrichGrammar, type MorphologyReader } from './morphology.ts'
@@ -8,6 +8,15 @@ import type { createBundledMufradatReader } from './bundled-mufradat.ts'
 import { enrichDictionaryAvailability } from './word-availability.ts'
 import { CoverageLookupRequestSchema, CoverageLookupResponseSchema } from '../../../packages/api-contracts/src/quran.ts'
 import { InvalidCoverageCursor, type createCoverageLookup } from './coverage.ts'
+import { z } from 'zod'
+
+const ProviderSearchSchema = z.object({
+  pagination: z.object({ current_page: z.number().int().positive(), next_page: z.number().int().positive().nullable() }),
+  result: z.object({ verses: z.array(z.object({ result_type: z.string(), key: z.string() })) }),
+})
+const ProviderSearchVerseSchema = z.object({
+  verse: z.object({ verse_number: z.number().int(), text_uthmani: z.string().trim().min(1), translations: z.array(z.object({ resource_id: z.number(), text: z.string().trim().min(1) })) }),
+})
 
 type Config = {
   clientId: string
@@ -27,25 +36,26 @@ export function createQuranHandler(config: Config) {
   const apiBase = config.environment === 'production' ? 'https://apis.quran.foundation' : 'https://apis-prelive.quran.foundation'
   let windowStart = Date.now()
   let requests = 0
-  let cachedToken: { value: string; expiresAt: number } | undefined
-  let pendingToken: Promise<string> | undefined
-  async function fetchToken(): Promise<string> {
+  const cachedTokens: Partial<Record<'content' | 'search', { value: string; expiresAt: number }>> = {}
+  const pendingTokens: Partial<Record<'content' | 'search', Promise<string>>> = {}
+  async function fetchToken(scope: 'content' | 'search'): Promise<string> {
     const auth = await fetch(`${authBase}/oauth2/token`, {
       method: 'POST',
       signal: AbortSignal.timeout(config.timeoutMs ?? 8_000),
       redirect: 'error',
       headers: { Authorization: `Basic ${btoa(`${config.clientId}:${config.clientSecret}`)}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: 'grant_type=client_credentials&scope=content',
+      body: `grant_type=client_credentials&scope=${scope}`,
     })
     const token: unknown = await auth.json()
     if (!auth.ok || typeof token !== 'object' || token === null || !('access_token' in token) || typeof token.access_token !== 'string' || !token.access_token || !('expires_in' in token) || typeof token.expires_in !== 'number' || !Number.isFinite(token.expires_in) || token.expires_in <= 0) throw new Error('Token request failed.')
-    cachedToken = { value: token.access_token, expiresAt: Date.now() + token.expires_in * 1000 }
-    return cachedToken.value
+    cachedTokens[scope] = { value: token.access_token, expiresAt: Date.now() + token.expires_in * 1000 }
+    return token.access_token
   }
-  function getToken(): Promise<string> {
-    if (cachedToken && cachedToken.expiresAt > Date.now() + 30_000) return Promise.resolve(cachedToken.value)
-    pendingToken ??= fetchToken().finally(() => { pendingToken = undefined })
-    return pendingToken
+  function getToken(scope: 'content' | 'search' = 'content'): Promise<string> {
+    const cached = cachedTokens[scope]
+    if (cached && cached.expiresAt > Date.now() + 30_000) return Promise.resolve(cached.value)
+    pendingTokens[scope] ??= fetchToken(scope).finally(() => { pendingTokens[scope] = undefined })
+    return pendingTokens[scope]
   }
   return async (request: Request): Promise<Response> => {
     const origin = request.headers.get('origin') ?? ''
@@ -65,13 +75,56 @@ export function createQuranHandler(config: Config) {
     const dictionaryPage = ownedContract && route === 'dictionary/entries'
     const dictionary = ownedContract && (route === 'dictionary' || dictionaryPage || mufradatRoute)
     const coverage = ownedContract && route === 'coverage/lookup'
-    const allowed = coverage ? ['mode', 'query', 'cursor'] : dictionaryPage ? ['root', 'lemma', 'cursor'] : dictionary ? ['root', 'lemma'] : route === 'chapters' ? [] : ['chapter', 'page']
-    if ((!coverage && !dictionary && route !== 'chapters' && route !== 'verses') || [...url.searchParams.keys()].some(key => !allowed.includes(key) || url.searchParams.getAll(key).length !== 1)) return error('Invalid content request.', 400)
+    const search = ownedContract && route === 'search'
+    const allowed = search ? ['query', 'language', 'page'] : coverage ? ['mode', 'query', 'cursor'] : dictionaryPage ? ['root', 'lemma', 'cursor'] : dictionary ? ['root', 'lemma'] : route === 'chapters' ? [] : ['chapter', 'page']
+    if ((!search && !coverage && !dictionary && route !== 'chapters' && route !== 'verses') || [...url.searchParams.keys()].some(key => !allowed.includes(key) || url.searchParams.getAll(key).length !== 1)) return error('Invalid content request.', 400)
     if (route === 'verses' && (!/^[1-9]\d{0,2}$/.test(chapter) || !/^[1-9]\d?$/.test(page) || !VersesRequestSchema.safeParse({ chapter: Number(chapter), page: Number(page) }).success)) return error('Invalid chapter or page.', 400)
     if (!coverage && !dictionary && (!config.clientId || !config.clientSecret || !['prelive', 'production'].includes(config.environment))) return error('Quran content is not configured yet.', 503)
     if (Date.now() - windowStart >= 60_000) { windowStart = Date.now(); requests = 0 }
     // A bounded per-isolate budget, not a global or per-user rate limiter.
     if (++requests > 60) return Response.json(ApiErrorSchema.parse({ error: 'Too many requests. Please try again shortly.' }), { status: 429, headers: { ...headers, 'Retry-After': '60' } })
+    if (search) {
+      const query = url.searchParams.get('query')?.trim() ?? ''
+      const language = url.searchParams.get('language')
+      const requestedPage = url.searchParams.get('page') ?? '1'
+      if (!query || query.length > 100 || !['arabic', 'english'].includes(language ?? '') || !/^[1-9]\d{0,2}$/.test(requestedPage)) return error('Invalid search request.', 400)
+      try {
+        const pageNumber = Number(requestedPage)
+        const params = new URLSearchParams({ mode: 'advanced', query, page: requestedPage, size: '20', translation_ids: config.environment === 'prelive' ? '85' : '131', highlight: '0' })
+        const searchUrl = `${apiBase}/search/api/v1/search?${params}`
+        const readSearch = (token: string) => fetch(searchUrl, { signal: AbortSignal.timeout(config.timeoutMs ?? 8_000), redirect: 'error', headers: { 'x-auth-token': token, 'x-client-id': config.clientId, Accept: 'application/json' } })
+        const searchToken = await getToken('search')
+        let found = await readSearch(searchToken)
+        if (found.status === 401) {
+          if (cachedTokens.search?.value === searchToken) delete cachedTokens.search
+          found = await readSearch(await getToken('search'))
+        }
+        if (!found.ok) return error('Quran search is temporarily unavailable. Please try again.', found.status === 429 ? 429 : 502)
+        const provider = ProviderSearchSchema.parse(await found.json())
+        if (provider.pagination.current_page !== pageNumber || (provider.pagination.next_page !== null && provider.pagination.next_page !== pageNumber + 1)) throw new Error('Unexpected search page')
+        const keys = provider.result.verses.filter(verse => verse.result_type === 'ayah' && /^(1|2):[1-9]\d{0,2}$/.test(verse.key)).map(verse => verse.key)
+        const contentToken = keys.length ? await getToken('content') : ''
+        const results = await Promise.all(keys.map(async key => {
+          const [chapter, verse] = key.split(':').map(Number)
+          const translationId = config.environment === 'prelive' ? 85 : 131
+          const contentUrl = `${apiBase}/content/api/v4/verses/by_key/${key}?fields=text_uthmani&translations=${translationId}`
+          const readContent = (token: string) => fetch(contentUrl, { signal: AbortSignal.timeout(config.timeoutMs ?? 8_000), redirect: 'error', headers: { 'x-auth-token': token, 'x-client-id': config.clientId, Accept: 'application/json' } })
+          let content = await readContent(contentToken)
+          if (content.status === 401) {
+            if (cachedTokens.content?.value === contentToken) delete cachedTokens.content
+            content = await readContent(await getToken('content'))
+          }
+          if (!content.ok) throw new Error('Verse unavailable')
+          const mapped = ProviderSearchVerseSchema.parse(await content.json()).verse
+          if (mapped.verse_number !== verse) throw new Error('Verse identity mismatch')
+          const translation = mapped.translations.find(item => item.resource_id === translationId)?.text
+          return { chapter, verse, chapterName: chapter === 1 ? 'Al-Fatihah' : 'Al-Baqarah', arabic: mapped.text_uthmani, translation, translationName: translationId === 85 ? 'M.A.S. Abdel Haleem' : 'Dr. Mustafa Khattab, The Clear Quran' }
+        }))
+        return Response.json(SearchResponseSchema.parse({ status: 'ready', results, nextPage: provider.pagination.next_page?.toString() ?? null, coverage: 'limited' }), { headers })
+      } catch {
+        return error('Quran search is temporarily unavailable. Please try again.', 502)
+      }
+    }
     if (coverage) {
       const query = CoverageLookupRequestSchema.safeParse(Object.fromEntries(url.searchParams))
       if (!query.success) return error('Enter an Arabic word or root.', 400)
@@ -130,7 +183,7 @@ export function createQuranHandler(config: Config) {
       let response = await read(token)
       if (response.status === 401) {
         // Do not invalidate a newer token acquired by a simultaneous request.
-        if (cachedToken?.value === token) cachedToken = undefined
+        if (cachedTokens.content?.value === token) delete cachedTokens.content
         response = await read(await getToken())
       }
       if (!response.ok) return error('Quran content is temporarily unavailable. Please try again.', response.status === 429 ? 429 : 502)

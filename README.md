@@ -45,7 +45,7 @@ follows the approved push through Pages.
 See [edition review, licence and mappings](apps/playground/data/mufradat/README.md).
 
 - Search for a chapter by name or English meaning.
-- In the local Search view, enter a chapter and verse reference such as `1:3` to open that verse. Text search is not available yet. This change reaches the live site after an approved push and deployment.
+- In the Search view, enter a chapter and verse reference such as `1:3`, or search Arabic text and English translations in Al-Fatihah and Al-Baqarah. The Search backend is deployed; the site publishes the new interface through Pages after the approved push.
 - Open a chapter to read Arabic text with an English translation.
 - Tap an Arabic word for its English meaning and transliteration, then move between words in the verse.
 - Bookmark an ayah and find it again in My bookmarks.
