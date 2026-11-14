@@ -1,5 +1,6 @@
 import { ChaptersResponseSchema, VersesRequestSchema, VersesResponseSchema, LaneRequestSchema, LanePageResponseSchema, type LanePageResponse, type LaneRequest, type Chapter, type VersesResponse, type QuranWord } from '@scratch-pages/api-contracts/quran'
 import { MufradatRequestSchema, MufradatCompleteResponseSchema, type MufradatRequest } from '@scratch-pages/api-contracts/quran'
+import { CoverageLookupResponseSchema } from '@scratch-pages/api-contracts/quran'
 
 export type { Chapter }
 export type Ayah = { number: number; arabic: string; translation: string; words?: QuranWord[] }
@@ -22,6 +23,14 @@ export async function getChapters(signal: AbortSignal): Promise<[Chapter, ...Cha
   const [first, ...rest] = result.data.chapters
   if (!first) throw new Error('No chapters are available.')
   return [first, ...rest]
+}
+
+export async function lookupCoverage(mode: 'word' | 'root', query: string, signal: AbortSignal, cursor?: string) {
+  const params = new URLSearchParams({ mode, query })
+  if (cursor) params.set('cursor', cursor)
+  const result = CoverageLookupResponseSchema.parse(await getContent(`coverage/lookup?${params}`, signal))
+  if (result.mode !== mode) throw new Error(formatError)
+  return result
 }
 
 export async function getLaneEntries(query: LaneRequest, signal: AbortSignal) {

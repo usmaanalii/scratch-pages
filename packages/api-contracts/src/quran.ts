@@ -1,6 +1,52 @@
 import { z } from 'zod'
 
 export const VERSES_PER_PAGE = 20
+export const COVERAGE_PAGE_SIZE = 25
+
+const CoverageDictionaryStatusSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('indexed'), count: z.number().int().positive(), basis: z.enum(['lemma', 'root']) }),
+  z.object({ status: z.enum(['missing', 'no_key', 'unknown', 'temporarily_unavailable']) }),
+])
+export type CoverageDictionaryStatus = z.infer<typeof CoverageDictionaryStatusSchema>
+export const CoverageAnalysisKeySchema = z.object({
+  segment: z.number().int().positive(),
+  root: z.string().nullable(),
+  lemma: z.string().nullable(),
+  lemmaVariant: z.string().regex(/^\d+$/).optional(),
+})
+const CoverageAnalysisSchema = CoverageAnalysisKeySchema.extend({
+  lane: CoverageDictionaryStatusSchema,
+  mufradat: CoverageDictionaryStatusSchema,
+})
+export const CoverageOccurrenceSchema = z.object({
+  chapter: z.number().int().min(1).max(114),
+  verse: z.number().int().positive(),
+  position: z.number().int().positive(),
+  spelling: z.string().min(1),
+  analyses: z.array(CoverageAnalysisSchema),
+})
+export const CoverageWordResponseSchema = z.object({
+  mode: z.literal('word'),
+  total: z.number().int().nonnegative(),
+  nextCursor: z.string().nullable(),
+  occurrences: z.array(CoverageOccurrenceSchema).max(COVERAGE_PAGE_SIZE),
+})
+export const CoverageRootResponseSchema = z.object({
+  mode: z.literal('root'),
+  root: z.string().min(1),
+  total: z.number().int().nonnegative(),
+  lane: CoverageDictionaryStatusSchema,
+  mufradat: CoverageDictionaryStatusSchema,
+})
+export const CoverageLookupResponseSchema = z.discriminatedUnion('mode', [CoverageWordResponseSchema, CoverageRootResponseSchema])
+export const CoverageLookupRequestSchema = z.strictObject({
+  mode: z.enum(['word', 'root']),
+  query: z.string().trim().min(1).max(64).regex(/^(?=.*\p{Letter})[\p{Script_Extensions=Arabic} ]+$/u)
+    .refine(value => /^[\p{Letter}\p{Mark} ]+$/u.test(value)),
+  cursor: z.string().min(1).max(160).optional(),
+}).refine(input => input.mode === 'word' || !input.cursor)
+export type CoverageLookupRequest = z.infer<typeof CoverageLookupRequestSchema>
+export type CoverageLookupResponse = z.infer<typeof CoverageLookupResponseSchema>
 
 export const ChapterSchema = z.object({
   id: z.number().int().min(1).max(114),

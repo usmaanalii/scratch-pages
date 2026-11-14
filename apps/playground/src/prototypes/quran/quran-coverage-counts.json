@@ -1,0 +1,38 @@
+{
+  "corpus": {
+    "chapters": 114,
+    "words": 77429,
+    "withRoot": 49967,
+    "withLemma": 74122
+  },
+  "historical": {
+    "matched": 5250,
+    "reference": 6145
+  },
+  "dictionary": {
+    "all": {
+      "total": 77429,
+      "lane": 46980,
+      "mufradat": 16577,
+      "either": 49452
+    },
+    "keyed": {
+      "total": 74122,
+      "lane": 46980,
+      "mufradat": 16577,
+      "either": 49452
+    },
+    "roots": {
+      "total": 1642,
+      "lane": 1258,
+      "mufradat": 238,
+      "either": 1283
+    },
+    "historical": {
+      "total": 5250,
+      "lane": 3128,
+      "mufradat": 1270,
+      "either": 3288
+    }
+  }
+}

@@ -38,6 +38,7 @@ export function createBundledMufradatReader(readFile: (path: URL) => Promise<Uin
   return {
     legacy: async (query: MufradatRequest, signal: AbortSignal) => MufradatResponseSchema.parse(await load(query, signal, false)),
     all: (query: MufradatRequest, signal: AbortSignal) => load(query, signal, true),
+    loadCoverageIndex: loadIndex,
     async loadIndex() {
       const index = await loadIndex()
       return (query: MufradatRequest) => selectEntries(query, index).ids

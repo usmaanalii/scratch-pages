@@ -15,6 +15,7 @@ export default defineConfig({
         main: resolve(appRoot, 'index.html'),
         quran: resolve(appRoot, 'quran/index.html'),
         quranWordAvailability: resolve(appRoot, 'quran-word-availability/index.html'),
+        quranDataCoverage: resolve(appRoot, 'quran-data-coverage/index.html'),
         supabase: resolve(appRoot, 'supabase/index.html'),
       },
     },

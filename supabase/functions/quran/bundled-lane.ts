@@ -73,7 +73,7 @@ export function createBundledLaneReader(readFile: (path: URL) => Promise<Uint8Ar
     signal.throwIfAborted()
     return LanePageResponseSchema.parse({ entries, entryIds: ids, revision, nextCursor: offset + LANE_PAGE_SIZE < ids.length ? `${revision}.${offset + LANE_PAGE_SIZE}.${binding}` : null })
   }
-  return { legacy, page, async loadIndex() {
+  return { legacy, page, loadCoverageIndex: loadCatalogue, async loadIndex() {
     const lookup = await loadCatalogue()
     return (query: LaneRequest) => selectEntries(query, lookup).ids
   } }

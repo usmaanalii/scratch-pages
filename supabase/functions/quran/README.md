@@ -324,6 +324,63 @@ snapshot over loopback and exclude hosted gateway and provider latency.
 After deployment, verify availability on Al-Fatihah and Al-Baqarah alongside
 grammar and both article endpoints, and measure cold and warm hosted responses.
 
+## Data coverage lookup (#68)
+
+Use `GET /functions/v1/quran/v2/coverage/lookup?mode=word&query=…` or
+`mode=root`. The API reads pinned local sources. It requires no Foundation
+credentials. Word results include up to 25 positions per page, the total,
+and a continuation tied to the comparison key and index revision. Each
+position has the imported Arabic spelling, chapter, verse, word position,
+and ordered stem analyses with root, lemma and a source variant where present.
+Root results give the exact root and its distinct Corpus position count.
+Each dictionary result gives its status and, when indexed, its count and
+lemma or root match basis.
+
+### Publication scope
+
+The owner confirmed noncommercial Playground use on 2026-11-14. The published
+Corpus terms permit attributed annotation use in a website or application.
+Apply that grant to the bounded results displayed in Playground. Preserve
+the original imported spelling in each result and apply normalisation to
+comparison keys only. Keep the unchanged Corpus 0.4 archive and reproduce
+its Corpus and embedded Tanzil Uthmani 1.0.2 notices. The generated index
+and verbatim notices stay in the function bundle, and the site links to the
+public source notices. This decision covers the integrated lookup. A
+downloadable, corpus-wide index needs a separate decision.
+[Corpus terms](https://corpus.quran.com/download/) ·
+[Pinned Corpus and Tanzil notices](../../../apps/playground/data/quran/README.md#publication-status)
+
+Lane and Mufradāt contribute status, match basis, and counts per source.
+Keep the source credits and licence links with the results via the page's
+source notices. The underlying Lane mapping adaptation is CC BY-SA 3.0 US.
+The reviewed OpenITI Mufradāt mapping adaptation is CC BY-NC-SA 4.0. Each
+source retains its own licence and the lookup returns no headwords, entry IDs,
+or article bodies.
+[Lane source and licence](../../../apps/playground/data/lane/README.md#attribution-and-licence) ·
+[Mufradāt source and licence](../../../apps/playground/data/mufradat/README.md#licence-and-attribution)
+
+Quran Foundation evidence on the page is limited to documented chapter
+availability and historical aggregate join counts. The lookup index uses
+the Corpus archive alone. Each query reports Foundation coverage as
+unmeasured. The site and lookup response carry no Foundation snapshot payload.
+[Quran Foundation developer terms](https://api-docs.quran.foundation/legal/developer-terms/)
+
+### Release checks
+
+Generate the existing morphology and both dictionary bundles. Generate the
+coverage asset from the workspace root:
+
+```sh
+pnpm --filter playground exec node scripts/quran-data/coverage-index.mjs ../../supabase/functions/quran/coverage-data
+```
+
+The Docker bundler selects the coverage index, checksum manifest and verbatim
+notice via `static_files`. Run the local function and verify word form, exact
+root and a continuation against those generated assets. After approved
+deployment, repeat the lookup checks on the hosted function before publishing
+the Pages route. Confirm the route URL after Pages deployment and add it to
+Quick access.
+
 ## Deployed history
 
 Version 13 of the `quran` function was deployed on 2026-11-13 for #46 from

@@ -6,6 +6,8 @@ import { MufradatRequestSchema, MufradatResponseSchema, MufradatCompleteResponse
 import { InvalidLaneCursor, type createBundledLaneReader } from './bundled-lane.ts'
 import type { createBundledMufradatReader } from './bundled-mufradat.ts'
 import { enrichDictionaryAvailability } from './word-availability.ts'
+import { CoverageLookupRequestSchema, CoverageLookupResponseSchema } from '../../../packages/api-contracts/src/quran.ts'
+import { InvalidCoverageCursor, type createCoverageLookup } from './coverage.ts'
 
 type Config = {
   clientId: string
@@ -16,6 +18,7 @@ type Config = {
   readMorphology?: MorphologyReader
   lane?: ReturnType<typeof createBundledLaneReader>
   mufradat?: ReturnType<typeof createBundledMufradatReader>
+  lookupCoverage?: ReturnType<typeof createCoverageLookup>
 }
 
 export function createQuranHandler(config: Config) {
@@ -61,13 +64,26 @@ export function createQuranHandler(config: Config) {
     const mufradatRoute = ownedContract && (route === 'mufradat' || completeMufradat)
     const dictionaryPage = ownedContract && route === 'dictionary/entries'
     const dictionary = ownedContract && (route === 'dictionary' || dictionaryPage || mufradatRoute)
-    const allowed = dictionaryPage ? ['root', 'lemma', 'cursor'] : dictionary ? ['root', 'lemma'] : route === 'chapters' ? [] : ['chapter', 'page']
-    if ((!dictionary && route !== 'chapters' && route !== 'verses') || [...url.searchParams.keys()].some(key => !allowed.includes(key) || url.searchParams.getAll(key).length !== 1)) return error('Invalid content request.', 400)
+    const coverage = ownedContract && route === 'coverage/lookup'
+    const allowed = coverage ? ['mode', 'query', 'cursor'] : dictionaryPage ? ['root', 'lemma', 'cursor'] : dictionary ? ['root', 'lemma'] : route === 'chapters' ? [] : ['chapter', 'page']
+    if ((!coverage && !dictionary && route !== 'chapters' && route !== 'verses') || [...url.searchParams.keys()].some(key => !allowed.includes(key) || url.searchParams.getAll(key).length !== 1)) return error('Invalid content request.', 400)
     if (route === 'verses' && (!/^[1-9]\d{0,2}$/.test(chapter) || !/^[1-9]\d?$/.test(page) || !VersesRequestSchema.safeParse({ chapter: Number(chapter), page: Number(page) }).success)) return error('Invalid chapter or page.', 400)
-    if (!dictionary && (!config.clientId || !config.clientSecret || !['prelive', 'production'].includes(config.environment))) return error('Quran content is not configured yet.', 503)
+    if (!coverage && !dictionary && (!config.clientId || !config.clientSecret || !['prelive', 'production'].includes(config.environment))) return error('Quran content is not configured yet.', 503)
     if (Date.now() - windowStart >= 60_000) { windowStart = Date.now(); requests = 0 }
     // A bounded per-isolate budget, not a global or per-user rate limiter.
     if (++requests > 60) return Response.json(ApiErrorSchema.parse({ error: 'Too many requests. Please try again shortly.' }), { status: 429, headers: { ...headers, 'Retry-After': '60' } })
+    if (coverage) {
+      const query = CoverageLookupRequestSchema.safeParse(Object.fromEntries(url.searchParams))
+      if (!query.success) return error('Enter an Arabic word or root.', 400)
+      if (!config.lookupCoverage) return error('Coverage lookup temporarily unavailable.', 503)
+      try {
+        const signal = AbortSignal.any([request.signal, AbortSignal.timeout(config.timeoutMs ?? 8_000)])
+        return Response.json(CoverageLookupResponseSchema.parse(await config.lookupCoverage(query.data, signal)), { headers })
+      } catch (cause) {
+        if (cause instanceof InvalidCoverageCursor) return error('Restart the lookup to see current results.', 400)
+        return error('Coverage lookup temporarily unavailable.', 503)
+      }
+    }
     if (dictionaryPage) {
       const query = LanePageRequestSchema.safeParse(Object.fromEntries(url.searchParams))
       if (!query.success) return error('Invalid dictionary request.', 400)

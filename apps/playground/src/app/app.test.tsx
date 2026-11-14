@@ -48,4 +48,15 @@ describe('Playground navigation', () => {
     expect(await screen.findByRole('heading', { name: 'Quran word availability' })).toBeVisible()
   })
 
+  it('opens the Qur’an data coverage page from the Playground homepage', async () => {
+    renderAtPath(import.meta.env.BASE_URL)
+    const destination = screen.getByRole('link', { name: /Qur’an data coverage/i })
+    const href = destination.getAttribute('href')
+    expect(href).toBe(`${import.meta.env.BASE_URL}quran-data-coverage/`)
+
+    window.history.pushState({}, '', href)
+    render(<App />)
+    expect(await screen.findByRole('heading', { name: 'Qur’an data coverage' })).toBeVisible()
+  })
+
 })

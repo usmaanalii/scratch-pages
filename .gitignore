@@ -30,6 +30,7 @@ release-evidence/
 apps/playground/public/quran-data/
 apps/playground/public/quran-lexicons/
 supabase/functions/quran/data/
+supabase/functions/quran/coverage-data/
 supabase/functions/quran/lane-data/
 supabase/functions/quran/mufradat-data/
 apps/playground/public/quran-mufradat/

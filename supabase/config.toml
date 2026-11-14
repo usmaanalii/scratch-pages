@@ -6,4 +6,13 @@ verify_jwt = false
 # Public read-only Quran content; no private data or user login.
 # CORS is browser policy, not authentication. The handler bounds upstream work.
 verify_jwt = false
-static_files = ["./functions/quran/data/morphology/*.json.gz", "./functions/quran/data/*.json", "./functions/quran/data/NOTICE.txt", "./functions/quran/lane-data/lane/*.json", "./functions/quran/lane-data/packs/*.json.gz", "./functions/quran/lane-data/index.json", "./functions/quran/lane-data/catalogue.json", "./functions/quran/lane-data/manifest.json", "./functions/quran/lane-data/NOTICE.txt", "./functions/quran/mufradat-data/entries/*.json", "./functions/quran/mufradat-data/index.json", "./functions/quran/mufradat-data/manifest.json", "./functions/quran/mufradat-data/NOTICE.txt"]
+static_files = [
+  "./functions/quran/data/morphology/*.json.gz", "./functions/quran/data/*.json", "./functions/quran/data/NOTICE.txt",
+  "./functions/quran/lane-data/lane/*.json", "./functions/quran/lane-data/packs/*.json.gz",
+  "./functions/quran/lane-data/index.json", "./functions/quran/lane-data/catalogue.json",
+  "./functions/quran/lane-data/manifest.json", "./functions/quran/lane-data/NOTICE.txt",
+  "./functions/quran/mufradat-data/entries/*.json", "./functions/quran/mufradat-data/index.json",
+  "./functions/quran/mufradat-data/manifest.json", "./functions/quran/mufradat-data/NOTICE.txt",
+  "./functions/quran/coverage-data/index.json.gz", "./functions/quran/coverage-data/manifest.json",
+  "./functions/quran/coverage-data/NOTICE.txt",
+]
