@@ -6,7 +6,7 @@ test('reads Quran content from the deployed app and backend after refresh', asyn
   await expect(page.getByRole('heading', { name: 'Al-Fatihah', exact: true })).toBeVisible()
   await expect(page.getByRole('article').first()).toBeVisible()
   await expect(page.getByText(/· Quran Foundation/)).toBeVisible()
-  await expect(page.getByRole('article').first().getByRole('paragraph').filter({ hasText: /[a-z]/i })).toBeVisible()
+  await expect(page.getByRole('article').first().getByRole('paragraph').filter({ hasText: /^In the name of God, the Lord of Mercy/i })).toBeVisible()
   await page.reload()
   await expect(page.getByRole('heading', { name: 'Al-Fatihah', exact: true })).toBeVisible()
   await expect(page.getByRole('article').first()).toBeVisible()
