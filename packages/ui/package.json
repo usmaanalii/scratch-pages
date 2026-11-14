@@ -6,7 +6,7 @@
   "exports": { ".": "./src/index.ts", "./styles.css": "./src/styles.css" },
   "peerDependencies": { "react": "^19.3.1" },
   "dependencies": {
-    "@radix-ui/react-dialog": "1.1.23",
+    "@radix-ui/react-dialog": "1.3.1",
     "@radix-ui/react-tabs": "1.2.1",
     "@scratch-pages/design-tokens": "workspace:*"
   },
