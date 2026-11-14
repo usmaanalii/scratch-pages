@@ -5,6 +5,7 @@
 - [Playground index](https://usmaanalii.github.io/personal-tools/)
 - [Quran reader](https://usmaanalii.github.io/personal-tools/quran/)
 - [Quran word availability](https://usmaanalii.github.io/personal-tools/quran-word-availability/)
+- [Qur’an data coverage](https://usmaanalii.github.io/personal-tools/quran-data-coverage/)
 - [Supabase API demo](https://usmaanalii.github.io/personal-tools/supabase/)
 - [Next.js connection lab](https://next-vercel-supabase-app.vercel.app)
 - [Shared UI Storybook](https://usmaanalii.github.io/personal-tools/storybook/)
